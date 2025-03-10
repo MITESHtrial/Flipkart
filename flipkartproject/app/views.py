@@ -343,7 +343,35 @@ def updateqty(req,qv,productid):
 
 from .forms import AddressForm
 
-def addaddress(req):
+def addaddress_single(req,productid=None):
+    if req.user.is_authenticated:
+        print(productid)
+        if productid==None:
+            payment_type="all"
+            req.session["payment_type"]=payment_type
+        else:
+            payment_type="single"
+            req.session["payment_type"]=payment_type
+            req.session["productid"]=productid
+
+        if req.method=="POST":
+            form=AddressForm(req.POST)
+
+            if form.is_valid():
+                address=form.save(commit=False)
+                address.userid=req.user
+                address.save()
+                return redirect('/showaddress')
+
+        else:
+            form=AddressForm()
+        
+        context={'form':form}
+        return render(req,'addaddress.html',context)
+    else:
+        return redirect('/signin')
+
+def addaddress_all(req):
     if req.user.is_authenticated:
         if req.method=="POST":
             form=AddressForm(req.POST)
@@ -361,6 +389,7 @@ def addaddress(req):
         return render(req,'addaddress.html',context)
     else:
         return redirect('/signin')
+
 
 
 def showaddress(req):
@@ -383,8 +412,19 @@ from django.core.mail import send_mail
 
 def payment(req):
     if req.user.is_authenticated:
+        
         try:
-            cartitems=Cart.objects.filter(userid=req.user.id)
+            payment_type="all"
+            payment_type=req.session.get("payment_type")
+            productid=req.session.get("productid")
+            print(payment_type,productid)
+
+            if payment_type=="single":
+                cartitems=Cart.objects.filter(userid=req.user.id,productid=productid)
+                
+            elif payment_type=="all":
+                cartitems=Cart.objects.filter(userid=req.user.id)
+
             totalamount=sum(i.productid.price*i.qty for i in cartitems)
             print(totalamount)
             userid=req.user
